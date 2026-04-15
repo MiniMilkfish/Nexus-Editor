@@ -15,12 +15,14 @@ export interface EditorConfig {
   onChange?: (doc: string, ast: Root) => void;
   onFocus?: () => void;
   onBlur?: () => void;
+  onAssetUpload?: (file: File) => Promise<string>;
 }
 
 export interface EditorAPI {
   getDocument(): string;
   getAst(): Root;
   getSlashCommands(): SlashCommandDef[];
+  uploadAsset(file: File): Promise<string | null>;
   setDocument(next: string): void;
   focus(): void;
   blur(): void;

@@ -279,6 +279,21 @@ describe("createEditor", () => {
     editor.destroy();
   });
 
+  it("delegates asset uploads through the configured host hook", async () => {
+    const container = document.createElement("div");
+    const file = new File(["image"], "image.png", { type: "image/png" });
+    const editor = createEditor({
+      container,
+      onAssetUpload(uploadedFile) {
+        expect(uploadedFile).toBe(file);
+        return Promise.resolve("https://cdn.example.com/image.png");
+      }
+    });
+
+    await expect(editor.uploadAsset(file)).resolves.toBe("https://cdn.example.com/image.png");
+    editor.destroy();
+  });
+
   it("stops emitting updates after destroy", () => {
     const container = document.createElement("div");
     const docs: string[] = [];

@@ -140,6 +140,13 @@ export function createEditor(config: EditorConfig): EditorAPI {
     getSlashCommands() {
       return slashCommands;
     },
+    uploadAsset(file) {
+      if (destroyed || !config.onAssetUpload) {
+        return Promise.resolve(null);
+      }
+
+      return config.onAssetUpload(file);
+    },
     setDocument(next) {
       if (destroyed) {
         return;
