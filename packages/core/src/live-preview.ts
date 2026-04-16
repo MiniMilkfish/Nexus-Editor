@@ -6,6 +6,7 @@ import { collectLivePreviewRanges, selectionIntersects } from "./live-preview-ra
 import { renderLivePreviewNode } from "./live-preview-renderers";
 import type {
   LivePreviewConfig,
+  LivePreviewLabels,
   LivePreviewNodeType,
   LivePreviewRenderer,
   ParserLike
@@ -14,7 +15,13 @@ import type {
 interface NormalizedLivePreviewConfig {
   enabled: boolean;
   renderers: Partial<Record<LivePreviewNodeType, LivePreviewRenderer>>;
+  labels: Required<LivePreviewLabels>;
 }
+
+const DEFAULT_LABELS: Required<LivePreviewLabels> = {
+  addColumn: "Add column",
+  addRow: "Add row",
+};
 
 function createEmptyAst(): Root {
   return {
@@ -35,22 +42,17 @@ function normalizeConfig(
   config: boolean | LivePreviewConfig | undefined
 ): NormalizedLivePreviewConfig {
   if (!config) {
-    return {
-      enabled: false,
-      renderers: {}
-    };
+    return { enabled: false, renderers: {}, labels: DEFAULT_LABELS };
   }
 
   if (config === true) {
-    return {
-      enabled: true,
-      renderers: {}
-    };
+    return { enabled: true, renderers: {}, labels: DEFAULT_LABELS };
   }
 
   return {
     enabled: config.enabled ?? true,
-    renderers: config.renderers ?? {}
+    renderers: config.renderers ?? {},
+    labels: { ...DEFAULT_LABELS, ...config.labels }
   };
 }
 
@@ -133,7 +135,8 @@ class EditableTableWidget extends WidgetType {
     private node: Table,
     private tableFrom: number,
     private source: string,
-    private viewRef: { current: EditorView | null }
+    private viewRef: { current: EditorView | null },
+    private labels: Required<LivePreviewLabels>
   ) {
     super();
   }
@@ -257,29 +260,38 @@ class EditableTableWidget extends WidgetType {
 
     wrapper.appendChild(table);
 
+    const btnBase =
+      "width:20px;height:20px;border:1px solid #ddd;border-radius:50%;" +
+      "background:#fff;cursor:pointer;font-size:14px;line-height:1;" +
+      "display:flex;align-items:center;justify-content:center;" +
+      "color:#999;padding:0;opacity:0;transition:opacity .15s;";
+
     // "+" button on the right — add column
     const addColBtn = document.createElement("button");
     addColBtn.textContent = "+";
-    addColBtn.title = "在右侧新增列";
+    addColBtn.title = self.labels.addColumn;
     addColBtn.style.cssText =
-      "position:absolute;right:-24px;top:50%;transform:translateY(-50%);" +
-      "width:20px;height:20px;border:1px solid #ddd;border-radius:50%;" +
-      "background:#fff;cursor:pointer;font-size:14px;line-height:1;" +
-      "display:flex;align-items:center;justify-content:center;color:#999;padding:0;";
+      btnBase + "position:absolute;right:-24px;top:50%;transform:translateY(-50%);";
     addColBtn.addEventListener("click", () => self.addColumn());
     wrapper.appendChild(addColBtn);
 
     // "+" button at the bottom — add row
     const addRowBtn = document.createElement("button");
     addRowBtn.textContent = "+";
-    addRowBtn.title = "在下方新增行";
-    addRowBtn.style.cssText =
-      "display:flex;align-items:center;justify-content:center;" +
-      "width:20px;height:20px;border:1px solid #ddd;border-radius:50%;" +
-      "background:#fff;cursor:pointer;font-size:14px;line-height:1;" +
-      "color:#999;margin:4px auto 0;padding:0;";
+    addRowBtn.title = self.labels.addRow;
+    addRowBtn.style.cssText = btnBase + "margin:4px auto 0;position:relative;";
     addRowBtn.addEventListener("click", () => self.addRow());
     wrapper.appendChild(addRowBtn);
+
+    // Show buttons only on wrapper hover
+    wrapper.addEventListener("mouseenter", () => {
+      addColBtn.style.opacity = "1";
+      addRowBtn.style.opacity = "1";
+    });
+    wrapper.addEventListener("mouseleave", () => {
+      addColBtn.style.opacity = "0";
+      addRowBtn.style.opacity = "0";
+    });
 
     return wrapper;
   }
@@ -467,7 +479,8 @@ function buildDecorations(
             range.node as Table,
             range.from,
             range.source,
-            viewRef
+            viewRef,
+            config.labels
           ),
           block: true
         }).range(range.from, range.to)

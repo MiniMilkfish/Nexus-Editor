@@ -4,6 +4,7 @@ export type {
   EditorConfig,
   EditorEventMap,
   LivePreviewConfig,
+  LivePreviewLabels,
   LivePreviewNode,
   LivePreviewNodeType,
   LivePreviewRenderContext,

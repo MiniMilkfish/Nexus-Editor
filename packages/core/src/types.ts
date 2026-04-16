@@ -31,9 +31,15 @@ export interface LivePreviewRenderContext {
 
 export type LivePreviewRenderer = (context: LivePreviewRenderContext) => HTMLElement;
 
+export interface LivePreviewLabels {
+  addColumn?: string;
+  addRow?: string;
+}
+
 export interface LivePreviewConfig {
   enabled?: boolean;
   renderers?: Partial<Record<LivePreviewNodeType, LivePreviewRenderer>>;
+  labels?: LivePreviewLabels;
 }
 
 export interface EditorConfig {
