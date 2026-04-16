@@ -93,7 +93,7 @@ describe("live preview", () => {
     editor.destroy();
   });
 
-  it("renders tables as widget with proper thead and tbody", () => {
+  it("renders tables as editable widget with contenteditable cells", () => {
     const container = document.createElement("div");
     const editor = createEditor({
       container,
@@ -104,8 +104,14 @@ describe("live preview", () => {
 
     const table = container.querySelector("table");
     expect(table).not.toBeNull();
-    expect(table?.querySelector("thead th")?.textContent).toBe("A");
-    expect(table?.querySelector("tbody td")?.textContent).toBe("1");
+    // Header cell
+    const th = table?.querySelector("th");
+    expect(th?.textContent).toBe("A");
+    expect(th?.contentEditable).toBe("true");
+    // Data cell
+    const td = table?.querySelector("td");
+    expect(td?.textContent).toBe("1");
+    expect(td?.contentEditable).toBe("true");
     editor.destroy();
   });
 
