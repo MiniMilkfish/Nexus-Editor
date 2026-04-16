@@ -54,14 +54,14 @@ function normalizeConfig(
   };
 }
 
-function createWidget(element: HTMLElement): WidgetType {
+function createWidget(element: HTMLElement, swallowEvents = false): WidgetType {
   return new (class extends WidgetType {
     toDOM() {
       return element;
     }
 
     ignoreEvent() {
-      return false;
+      return swallowEvents;
     }
   })();
 }
@@ -267,14 +267,14 @@ function buildDecorations(
         decos
       );
     } else if (range.node.type === "table") {
-      // Tables always render as widget — no cursor-based switching
+      // Tables always render as widget with swallowEvents=true
+      // so clicks don't break CM6 cursor positioning
+      const tableEl = config.renderers.table
+        ? renderLivePreviewNode(range.node, range.source, config.renderers)
+        : renderTableWidget(range.node);
       decos.push(
         Decoration.replace({
-          widget: createWidget(
-            config.renderers.table
-              ? renderLivePreviewNode(range.node, range.source, config.renderers)
-              : renderTableWidget(range.node)
-          ),
+          widget: createWidget(tableEl, true),
           block: true
         }).range(range.from, range.to)
       );
@@ -318,7 +318,10 @@ function buildDecorations(
       const isBlock = BLOCK_NODE_TYPES.has(range.node.type);
       decos.push(
         Decoration.replace({
-          widget: createWidget(renderLivePreviewNode(range.node, range.source, config.renderers)),
+          widget: createWidget(
+            renderLivePreviewNode(range.node, range.source, config.renderers),
+            isBlock
+          ),
           block: isBlock
         }).range(range.from, range.to)
       );
