@@ -1,5 +1,5 @@
 import { EditorState } from "@codemirror/state";
-import { EditorView, keymap, dropCursor } from "@codemirror/view";
+import { EditorView, keymap, dropCursor, lineNumbers } from "@codemirror/view";
 import { indentWithTab } from "@codemirror/commands";
 import { closeBrackets } from "@codemirror/autocomplete";
 import type { Root } from "mdast";
@@ -158,6 +158,19 @@ export function createEditor(config: EditorConfig): EditorAPI {
 
               emitter.emit("slashMenuChange", { ...state, coords });
             }
+          }
+        }),
+        lineNumbers(),
+        EditorView.theme({
+          "&": { fontSize: "15px" },
+          ".cm-content": { padding: "8px 0" },
+          ".cm-line": { padding: "0 12px" },
+          ".cm-gutters": { borderRight: "1px solid #eee", background: "#fafafa" },
+          ".cm-lineNumbers .cm-gutterElement": {
+            padding: "0 8px 0 12px",
+            minWidth: "32px",
+            color: "#bbb",
+            fontSize: "13px",
           }
         }),
         keymap.of([indentWithTab]),
