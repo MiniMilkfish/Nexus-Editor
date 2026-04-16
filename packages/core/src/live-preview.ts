@@ -68,6 +68,9 @@ function createWidget(element: HTMLElement, swallowEvents = false): WidgetType {
 
 const BLOCK_NODE_TYPES = new Set(["blockquote", "code", "thematicBreak"]);
 
+// Module-level flag: how many table cells are currently focused
+let tableEditingCount = 0;
+
 const HEADING_FONT_SIZE: Record<number, string> = {
   1: "1.6em",
   2: "1.4em",
@@ -184,8 +187,8 @@ class EditableTableWidget extends WidgetType {
           td.style.background = "#f6f8fa";
         }
 
-        td.addEventListener("focus", () => { self.editing = true; });
-        td.addEventListener("blur", () => { self.editing = false; });
+        td.addEventListener("focus", () => { self.editing = true; tableEditingCount++; });
+        td.addEventListener("blur", () => { self.editing = false; tableEditingCount--; });
 
         td.addEventListener("input", () => {
           const v = self.viewRef.current;
@@ -501,6 +504,11 @@ export function createLivePreviewExtension(
       );
     },
     update(decos: DecorationSet, tr: Transaction) {
+      if (tr.docChanged && tableEditingCount > 0) {
+        // A table cell is being edited — remap positions instead of
+        // rebuilding, so the widget DOM (and focus) is preserved.
+        return decos.map(tr.changes);
+      }
       if (tr.docChanged || tr.selection) {
         return buildDecorations(
           tr.state.doc.toString(),
