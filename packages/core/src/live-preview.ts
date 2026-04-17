@@ -279,7 +279,7 @@ function buildCodeBlockDecorations(
       } else {
         // View: closing ``` → transparent text (keeps DOM positions for cursor)
         decos.push(Decoration.mark({
-          attributes: { style: "color:transparent;font-size:0;line-height:0;overflow:hidden;max-width:0;display:inline-block;" }
+          attributes: { style: "color:transparent;" }
         }).range(lineStart, lineEnd));
       }
     }
