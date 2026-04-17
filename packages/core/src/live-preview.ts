@@ -226,65 +226,61 @@ function buildCodeBlockDecorations(
 
     // Line style — only border-radius differs between first/last/middle
     const radius = isFirstLine ? "border-radius:4px 4px 0 0;" : isLastLine ? "border-radius:0 0 4px 4px;" : "";
-    // First line needs position:relative so the language label can be position:absolute
-    const pos = isFirstLine ? "position:relative;" : "";
-    const lineAttrs: Record<string, string> = { style: BASE + radius + pos };
+    const lineAttrs: Record<string, string> = { style: BASE + radius };
     if (isFirstLine) {
       lineAttrs.role = "code";
       if (lang) lineAttrs["aria-label"] = `Code block: ${lang}`;
     }
     decos.push(Decoration.line({ attributes: lineAttrs }).range(lineStart));
 
-    // Fence lines: muted text in edit mode, replaced in view mode
+    // Fence lines: muted in edit, transparent in view (never replace — keeps DOM intact)
     if (isFenced && (isFirstLine || isLastLine) && lineEnd > lineStart) {
       if (cursorOnCode) {
-        // Edit: fence text visible but faint
         decos.push(Decoration.mark({
           attributes: { style: "color:var(--nexus-text-faint,#bbb);" }
         }).range(lineStart, lineEnd));
-      } else if (isFirstLine) {
-        // View: replace ```lang with right-aligned language label (click to copy)
-        decos.push(Decoration.replace({
-          widget: new (class extends WidgetType {
-            toDOM() {
-              const tag = document.createElement("span");
-              tag.textContent = langText || "";
-              if (langText) tag.title = "Click to copy code";
-              tag.style.cssText = "position:absolute;right:8px;top:50%;transform:translateY(-50%);" +
-                "font-size:12px;color:var(--nexus-text-muted,#888);" +
-                "font-family:system-ui,-apple-system,sans-serif;cursor:pointer;user-select:none;" +
-                "padding:0 4px;border-radius:3px;transition:background 0.15s,color 0.15s;";
-              if (langText) {
-                tag.addEventListener("mouseenter", () => {
-                  tag.style.background = "var(--nexus-bg-muted,#e8e8e8)";
-                  tag.style.color = "var(--nexus-text,#24292e)";
-                });
-                tag.addEventListener("mouseleave", () => {
-                  tag.style.background = "transparent";
-                  tag.style.color = "var(--nexus-text-muted,#888)";
-                });
-                tag.addEventListener("mousedown", (e) => { e.preventDefault(); e.stopPropagation(); });
-                tag.addEventListener("click", (e) => {
-                  e.preventDefault(); e.stopPropagation();
-                  navigator.clipboard.writeText(codeValue).then(() => {
-                    const orig = tag.textContent;
-                    tag.textContent = "Copied!";
-                    setTimeout(() => { tag.textContent = orig; }, 1500);
-                  });
-                });
-              }
-              return tag;
-            }
-            eq() { return false; }
-            ignoreEvent() { return false; }
-          })()
-        }).range(lineStart, lineEnd));
       } else {
-        // View: closing ``` → transparent text (keeps DOM positions for cursor)
         decos.push(Decoration.mark({
           attributes: { style: "color:transparent;" }
         }).range(lineStart, lineEnd));
       }
+    }
+
+    // Language label widget — appended after first fence line text in view mode
+    if (isFenced && isFirstLine && !cursorOnCode && langText) {
+      decos.push(Decoration.widget({
+        widget: new (class extends WidgetType {
+          toDOM() {
+            const tag = document.createElement("span");
+            tag.textContent = langText;
+            tag.title = "Click to copy code";
+            tag.style.cssText = "margin-left:8px;font-size:12px;color:var(--nexus-text-muted,#888);" +
+              "font-family:system-ui,-apple-system,sans-serif;cursor:pointer;user-select:none;" +
+              "padding:0 4px;border-radius:3px;transition:background 0.15s,color 0.15s;";
+            tag.addEventListener("mouseenter", () => {
+              tag.style.background = "var(--nexus-bg-muted,#e8e8e8)";
+              tag.style.color = "var(--nexus-text,#24292e)";
+            });
+            tag.addEventListener("mouseleave", () => {
+              tag.style.background = "transparent";
+              tag.style.color = "var(--nexus-text-muted,#888)";
+            });
+            tag.addEventListener("mousedown", (e) => { e.preventDefault(); e.stopPropagation(); });
+            tag.addEventListener("click", (e) => {
+              e.preventDefault(); e.stopPropagation();
+              navigator.clipboard.writeText(codeValue).then(() => {
+                const orig = tag.textContent;
+                tag.textContent = "Copied!";
+                setTimeout(() => { tag.textContent = orig; }, 1500);
+              });
+            });
+            return tag;
+          }
+          eq() { return false; }
+          ignoreEvent() { return false; }
+        })(),
+        side: 1
+      }).range(lineEnd));
     }
 
     lineOffset = lineEnd + 1;
