@@ -234,15 +234,11 @@ function buildCodeBlockDecorations(
     }
     decos.push(Decoration.line({ attributes: lineAttrs }).range(lineStart));
 
-    // Fence lines: muted in edit, replaced in view
+    // Fence lines: always muted — cursor can enter from either mode
     if (isFenced && (isFirstLine || isLastLine) && lineEnd > lineStart) {
-      if (cursorOnCode) {
-        decos.push(Decoration.mark({
-          attributes: { style: "color:var(--nexus-text-faint,#bbb);" }
-        }).range(lineStart, lineEnd));
-      } else {
-        decos.push(Decoration.replace({}).range(lineStart, lineEnd));
-      }
+      decos.push(Decoration.mark({
+        attributes: { style: "color:var(--nexus-text-faint,#bbb);" }
+      }).range(lineStart, lineEnd));
     }
 
     // Language label widget — appended after first fence line text in view mode
