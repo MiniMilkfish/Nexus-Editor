@@ -3,49 +3,47 @@ import { describe, expect, it } from "vitest";
 import { createGfmPreset } from "../../preset-gfm/src/index";
 import { createEditor } from "../src/index";
 
-/** Get text content excluding transparent (hidden marker) spans. */
-function getVisibleText(container: HTMLElement): string {
-  const clone = container.cloneNode(true) as HTMLElement;
-  clone.querySelectorAll("span").forEach((span) => {
-    if (span.style.color === "transparent") span.remove();
-  });
-  return clone.textContent ?? "";
-}
-
 describe("live preview", () => {
   // ── Inline formatting ──
+  // Note: inline markers are hidden when cursor is on a DIFFERENT line (line-level detection).
+  // Tests use multi-line content with cursor moved to a separate line.
 
   it("hides markers and shows styled text for inline formatting", () => {
     const container = document.createElement("div");
     const editor = createEditor({
       container,
-      initialValue: "Text **bold** *italic* `code` [link](https://example.com)",
+      initialValue: "Text **bold** *italic* `code` [link](https://example.com)\n\nend",
       livePreview: true
     });
 
-    const text = getVisibleText(container);
+    // Move cursor to a different line
+    editor.setSelection(editor.getDocument().length);
+
+    const text = container.textContent ?? "";
     expect(text).toContain("bold");
     expect(text).toContain("italic");
     expect(text).toContain("code");
     expect(text).toContain("link");
-    // Markers hidden (transparent, not in visible text)
+    // Markers hidden (replaced)
     expect(text).not.toContain("**");
     expect(container.querySelector("[data-link-url]")).not.toBeNull();
     editor.destroy();
   });
 
-  it("restores raw markdown when cursor enters an inline range", () => {
+  it("restores raw markdown when cursor enters the same line", () => {
     const container = document.createElement("div");
     const editor = createEditor({
       container,
-      initialValue: "Text **bold**",
+      initialValue: "Text **bold**\n\nend",
       livePreview: true
     });
 
-    expect(getVisibleText(container)).not.toContain("**");
+    // Cursor on different line → markers hidden
+    editor.setSelection(editor.getDocument().length);
+    expect(container.textContent).not.toContain("**");
 
+    // Cursor on same line → markers visible
     editor.setSelection(8);
-
     expect(container.textContent).toContain("**bold**");
     editor.destroy();
   });
@@ -54,12 +52,14 @@ describe("live preview", () => {
     const container = document.createElement("div");
     const editor = createEditor({
       container,
-      initialValue: "Text ~~deleted~~",
+      initialValue: "Text ~~deleted~~\n\nend",
       livePreview: true,
       plugins: [createGfmPreset()]
     });
 
-    const text = getVisibleText(container);
+    editor.setSelection(editor.getDocument().length);
+
+    const text = container.textContent ?? "";
     expect(text).toContain("deleted");
     expect(text).not.toContain("~~");
     editor.destroy();
@@ -69,13 +69,14 @@ describe("live preview", () => {
     const container = document.createElement("div");
     const editor = createEditor({
       container,
-      initialValue: "Text **bold**",
+      initialValue: "Text **bold**\n\nend",
       livePreview: true
     });
 
-    editor.setDocument("Text **changed**");
+    editor.setDocument("Text **changed**\n\nend");
+    editor.setSelection(editor.getDocument().length);
 
-    const text = getVisibleText(container);
+    const text = container.textContent ?? "";
     expect(text).toContain("changed");
     expect(text).not.toContain("**");
     editor.destroy();
@@ -87,11 +88,13 @@ describe("live preview", () => {
     const container = document.createElement("div");
     const editor = createEditor({
       container,
-      initialValue: "Text ***bold italic***",
+      initialValue: "Text ***bold italic***\n\nend",
       livePreview: true
     });
 
-    const text = getVisibleText(container);
+    editor.setSelection(editor.getDocument().length);
+
+    const text = container.textContent ?? "";
     expect(text).toContain("bold italic");
     expect(text).not.toContain("***");
     expect(text).not.toContain("**");
@@ -102,11 +105,13 @@ describe("live preview", () => {
     const container = document.createElement("div");
     const editor = createEditor({
       container,
-      initialValue: "Text **_mixed_**",
+      initialValue: "Text **_mixed_**\n\nend",
       livePreview: true
     });
 
-    const text = getVisibleText(container);
+    editor.setSelection(editor.getDocument().length);
+
+    const text = container.textContent ?? "";
     expect(text).toContain("mixed");
     expect(text).not.toContain("**");
     expect(text).not.toContain("_");
@@ -119,9 +124,11 @@ describe("live preview", () => {
     const container = document.createElement("div");
     const editor = createEditor({
       container,
-      initialValue: "Click [here](https://example.com)",
+      initialValue: "Click [here](https://example.com)\n\nend",
       livePreview: true
     });
+
+    editor.setSelection(editor.getDocument().length);
 
     const linkEl = container.querySelector("[data-link-url]");
     expect(linkEl).not.toBeNull();
@@ -133,11 +140,12 @@ describe("live preview", () => {
     const container = document.createElement("div");
     const editor = createEditor({
       container,
-      initialValue: "## 目录\n\n1. [项目概述](#项目概述)\n2. [快速开始](#快速开始)\n3. [主要功能](#主要功能)",
+      initialValue: "## 目录\n\n1. [项目概述](#项目概述)\n2. [快速开始](#快速开始)\n3. [主要功能](#主要功能)\n\nend",
       livePreview: true
     });
 
-    // Link text elements with data-link-url
+    editor.setSelection(editor.getDocument().length);
+
     const links = container.querySelectorAll("[data-link-url]");
     expect(links.length).toBe(3);
     expect(links[0].textContent).toBe("项目概述");
@@ -150,9 +158,11 @@ describe("live preview", () => {
     const container = document.createElement("div");
     const editor = createEditor({
       container,
-      initialValue: "Click [here](https://example.com) now",
+      initialValue: "Click [here](https://example.com) now\n\nend",
       livePreview: true
     });
+
+    editor.setSelection(editor.getDocument().length);
 
     const linkEl = container.querySelector("[data-link-url]");
     expect(linkEl).not.toBeNull();
@@ -227,14 +237,11 @@ describe("live preview", () => {
       livePreview: true
     });
 
-    // View mode: fences hidden
     const textBefore = container.textContent ?? "";
     expect(textBefore).toContain("console.log(1)");
 
-    // Move cursor into code block content
     editor.setSelection(12);
 
-    // Edit mode: fences visible
     const textAfter = container.textContent ?? "";
     expect(textAfter).toContain("```js");
     expect(textAfter).toContain("console.log(1)");
@@ -249,7 +256,6 @@ describe("live preview", () => {
       livePreview: true
     });
 
-    // All code content lines should have background styling via line decorations
     const codeLines = Array.from(container.querySelectorAll(".cm-line")).filter(
       (line) => (line as HTMLElement).style.background === "rgb(246, 248, 250)"
         || (line as HTMLElement).getAttribute("style")?.includes("background")
@@ -271,7 +277,6 @@ describe("live preview", () => {
     const text = container.textContent ?? "";
     expect(text).toContain("indented code");
     expect(text).toContain("second line");
-    // Should have code background on content lines
     const codeLines = Array.from(container.querySelectorAll(".cm-line")).filter(
       (line) => (line as HTMLElement).getAttribute("style")?.includes("monospace")
     );
@@ -302,10 +307,12 @@ describe("live preview", () => {
     const container = document.createElement("div");
     const editor = createEditor({
       container,
-      initialValue: "Visit https://example.com today",
+      initialValue: "Visit https://example.com today\n\nend",
       livePreview: true,
       plugins: [createGfmPreset()]
     });
+
+    editor.setSelection(editor.getDocument().length);
 
     const linkEl = container.querySelector("[data-link-url]");
     expect(linkEl).not.toBeNull();
@@ -328,7 +335,6 @@ describe("live preview", () => {
     expect(table).not.toBeNull();
     const ths = table?.querySelectorAll("th");
     expect(ths!.length).toBeGreaterThanOrEqual(3);
-    // First th is row grip, second is content cell "A"
     expect(ths![1]?.textContent).toBe("A");
     expect(ths![1]?.classList.contains("nexus-cell")).toBe(true);
     editor.destroy();
@@ -361,7 +367,7 @@ describe("live preview", () => {
     const container = document.createElement("div");
     const editor = createEditor({
       container,
-      initialValue: "Text **bold**",
+      initialValue: "end\n\nText **bold**",
       livePreview: {
         renderers: {
           strong({ source }) {
@@ -373,6 +379,9 @@ describe("live preview", () => {
       }
     });
 
+    // Cursor on first line, away from the bold
+    editor.setSelection(0);
+
     expect(container.querySelector("[data-source]")?.getAttribute("data-source")).toBe("**bold**");
     editor.destroy();
   });
@@ -381,7 +390,7 @@ describe("live preview", () => {
     const container = document.createElement("div");
     const editor = createEditor({
       container,
-      initialValue: "Text **bold** *italic*",
+      initialValue: "end\n\nText **bold** *italic*",
       livePreview: {
         renderers: {
           strong({ text }) {
@@ -393,10 +402,12 @@ describe("live preview", () => {
       }
     });
 
+    editor.setSelection(0);
+
     // Custom renderer for strong
     expect(container.querySelector("span")?.textContent).toBe("BOLD");
-    // Default mark decoration for italic
-    const text = getVisibleText(container);
+    // Default mark decoration for italic — markers replaced
+    const text = container.textContent ?? "";
     expect(text).toContain("italic");
     expect(text).not.toContain("*italic*");
     editor.destroy();

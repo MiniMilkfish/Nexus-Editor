@@ -508,22 +508,18 @@ function buildDecorations(
         parentSpans.push([range.from, range.to]);
       }
 
-      // Inline formatting: hide markers via transparent mark (preserves cursor positions),
-      // apply style to visible text
+      // Inline formatting: hide markers via Decoration.replace (cursor is on a
+      // different line, so replace is safe and keeps CM6 heightmap accurate).
       const inlineStyle = getInlineMarkerStyle(range.node.type, range.source);
       if (inlineStyle && !config.renderers[range.node.type]) {
         const { openLen, closeLen, style, attrs } = inlineStyle;
-        // Hide opening marker — mark as transparent so cursor can step through
+        // Hide opening marker
         if (openLen > 0) {
-          decos.push(Decoration.mark({
-            attributes: { style: "color:transparent;" }
-          }).range(range.from, range.from + openLen));
+          decos.push(Decoration.replace({}).range(range.from, range.from + openLen));
         }
         // Hide closing marker
         if (closeLen > 0) {
-          decos.push(Decoration.mark({
-            attributes: { style: "color:transparent;" }
-          }).range(range.to - closeLen, range.to));
+          decos.push(Decoration.replace({}).range(range.to - closeLen, range.to));
         }
         // Apply style to visible text
         const textFrom = range.from + openLen;

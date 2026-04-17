@@ -47,6 +47,24 @@ export function selectionIntersects(
   });
 }
 
+/** Check if the cursor is on the same line as the range [from, to]. */
+function selectionOnSameLine(
+  from: number,
+  to: number,
+  doc: string,
+  selection: readonly SelectionRange[]
+): boolean {
+  // Find line boundaries for the node
+  const nodeLineStart = doc.lastIndexOf("\n", from - 1) + 1;
+  const nodeLineEnd = doc.indexOf("\n", to);
+  const lineEnd = nodeLineEnd === -1 ? doc.length : nodeLineEnd;
+
+  return selection.some((range) => {
+    const cursor = range.head;
+    return cursor >= nodeLineStart && cursor <= lineEnd;
+  });
+}
+
 function collectImageRanges(
   doc: string,
   selection: readonly SelectionRange[]
@@ -97,9 +115,11 @@ function visit(
         continue;
       }
 
-      // Links use inclusive end so cursor at link boundary triggers edit mode
-      const inclusive = child.type === "link";
-      if (!selectionIntersects(from, to, selection, inclusive)) {
+      // Inline formatting: hide markers when cursor is on a DIFFERENT line.
+      // Line-level check prevents scroll/click desync caused by per-character
+      // range intersection with transparent marks or replace decorations.
+      const cursorOnSameLine = selectionOnSameLine(from, to, doc, selection);
+      if (!cursorOnSameLine) {
         ranges.push({ from, to, node: child, source: doc.slice(from, to) });
         // Recurse into children for nested inline formatting (e.g. ***bold italic***)
         if ("children" in child && Array.isArray(child.children)) {

@@ -23,14 +23,22 @@ describe("live preview ranges", () => {
     expect(ranges.at(-1)?.source).toBe("![Alt](https://example.com/image.png)");
   });
 
-  it("omits ranges that intersect the current selection", () => {
-    const doc = "Text **bold** *italic*";
-    const ranges = collectLivePreviewRanges(
+  it("omits inline ranges when cursor is on the same line", () => {
+    const doc = "Text **bold** *italic*\n\nother line";
+    // Cursor on same line as bold+italic → both omitted
+    const rangesSameLine = collectLivePreviewRanges(
       parse(doc),
       doc,
       [EditorSelection.cursor(8)]
     );
+    expect(rangesSameLine.map((r) => r.node.type)).toEqual([]);
 
-    expect(ranges.map((range) => range.node.type)).toEqual(["emphasis"]);
+    // Cursor on different line → both collected
+    const rangesDiffLine = collectLivePreviewRanges(
+      parse(doc),
+      doc,
+      [EditorSelection.cursor(doc.length)]
+    );
+    expect(rangesDiffLine.map((r) => r.node.type)).toEqual(["strong", "emphasis"]);
   });
 });

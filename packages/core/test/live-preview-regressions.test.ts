@@ -3,27 +3,24 @@ import { describe, expect, it } from "vitest";
 import { createHistoryPlugin } from "../../plugin-history/src/index";
 import { createEditor } from "../src/index";
 
-function getVisibleText(container: HTMLElement): string {
-  const clone = container.cloneNode(true) as HTMLElement;
-  clone.querySelectorAll("span").forEach((span) => {
-    if (span.style.color === "transparent") span.remove();
-  });
-  return clone.textContent ?? "";
-}
-
 describe("live preview regressions", () => {
   it("keeps live preview working when the history plugin is registered", () => {
     const container = document.createElement("div");
     const editor = createEditor({
       container,
-      initialValue: "Text **bold**",
+      initialValue: "Text **bold**\n\nend",
       livePreview: true,
       plugins: [createHistoryPlugin()]
     });
 
     const content = container.querySelector("[contenteditable='true']");
 
-    editor.setDocument("Text **changed**");
+    // Move cursor away from the bold line
+    editor.setSelection(editor.getDocument().length);
+
+    editor.setDocument("Text **changed**\n\nend");
+    editor.setSelection(editor.getDocument().length);
+
     content?.dispatchEvent(
       new KeyboardEvent("keydown", {
         key: "z",
@@ -33,9 +30,12 @@ describe("live preview regressions", () => {
       })
     );
 
+    // Cursor on different line → markers hidden
+    editor.setSelection(editor.getDocument().length);
+
     const text = container.textContent ?? "";
     expect(text).toContain("bold");
-    expect(getVisibleText(container)).not.toContain("**");
+    expect(text).not.toContain("**");
     editor.destroy();
   });
 
@@ -43,20 +43,20 @@ describe("live preview regressions", () => {
     const container = document.createElement("div");
     const editor = createEditor({
       container,
-      initialValue: "Text **bold** end",
+      initialValue: "Text **bold** end\n\nother line",
       livePreview: true
     });
 
+    // Cursor on bold line: raw markdown visible
     editor.setSelection(8);
-    // Cursor inside bold: raw markdown visible
     expect(container.textContent).toContain("**bold**");
 
-    editor.setSelection(0);
+    // Cursor moves to different line: markers hidden
+    editor.setSelection(editor.getDocument().length);
 
-    // Cursor left: markers hidden, text visible
     const text = container.textContent ?? "";
     expect(text).toContain("bold");
-    expect(getVisibleText(container)).not.toContain("**");
+    expect(text).not.toContain("**");
     editor.destroy();
   });
 });
