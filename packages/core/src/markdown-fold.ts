@@ -3,6 +3,7 @@ import { foldGutter, foldService } from "@codemirror/language";
 
 const HEADING_RE = /^(#{1,6}) /;
 const FENCE_OPEN_RE = /^[ \t]*(`{3,}|~{3,})/;
+const INDENT_RE = /^([ \t]*)/;
 
 /**
  * CM6 fold service for markdown headings and fenced code blocks.
@@ -49,6 +50,30 @@ export function markdownFoldService(): Extension {
         if (trimmed.startsWith(fenceChar.repeat(fenceLen)) && trimmed.trim().length <= fenceLen + 1) {
           return { from: line.to, to: nextLine.to };
         }
+      }
+    }
+
+    // ── Indent-based fold (lists, nested content) ──
+    const indentMatch = INDENT_RE.exec(text);
+    if (indentMatch && text.trim().length > 0) {
+      const indent = indentMatch[1].length;
+      // Only fold lines that have content and are followed by more-indented lines
+      let foldEnd = -1;
+      for (let i = line.number + 1; i <= state.doc.lines; i++) {
+        const nextLine = state.doc.line(i);
+        if (nextLine.text.trim().length === 0) {
+          // Blank lines are included in the fold if followed by indented content
+          continue;
+        }
+        const nextIndent = INDENT_RE.exec(nextLine.text);
+        if (nextIndent && nextIndent[1].length > indent) {
+          foldEnd = nextLine.to;
+        } else {
+          break;
+        }
+      }
+      if (foldEnd > line.to) {
+        return { from: line.to, to: foldEnd };
       }
     }
 

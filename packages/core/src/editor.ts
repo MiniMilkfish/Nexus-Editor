@@ -1,6 +1,6 @@
 import { EditorState } from "@codemirror/state";
-import { EditorView, keymap, dropCursor, lineNumbers } from "@codemirror/view";
-import { indentWithTab } from "@codemirror/commands";
+import { EditorView, keymap, dropCursor, lineNumbers, type Direction } from "@codemirror/view";
+import { indentWithTab, undo as cmUndo, redo as cmRedo } from "@codemirror/commands";
 import { closeBrackets } from "@codemirror/autocomplete";
 import type { Root } from "mdast";
 import type { Heading } from "mdast";
@@ -13,7 +13,9 @@ import { EventEmitter } from "./event-emitter";
 import { createLivePreviewExtension } from "./live-preview";
 import { markdownFoldService } from "./markdown-fold";
 import { resolveLocale } from "./locale";
+import { markdownAutoPair } from "./markdown-autopair";
 import { markdownKeymap } from "./markdown-keymap";
+import { indentationMarkers } from "@replit/codemirror-indentation-markers";
 import { createThemeExtension, lightTheme, type NexusTheme } from "./theme";
 import { computeSlashState } from "./slash-state";
 import type { EditorAPI, EditorConfig, EditorEventMap, NexusPlugin, ParserLike, TocEntry } from "./types";
@@ -143,6 +145,13 @@ export function createEditor(config: EditorConfig): EditorAPI {
   }
 
   const themeExt = createThemeExtension(config.theme ?? lightTheme);
+  const tabSizeExt = config.tabSize && config.tabSize !== 4
+    ? EditorState.tabSize.of(config.tabSize)
+    : [];
+  const directionExt = config.direction === "rtl"
+    ? EditorView.contentAttributes.of({ dir: "rtl" })
+    : [];
+  const indentGuidesExt = config.indentGuides ? indentationMarkers() : [];
 
   const shortcutExtensions =
     shortcuts.length > 0
@@ -203,10 +212,14 @@ export function createEditor(config: EditorConfig): EditorAPI {
         }),
         lineNumbers(),
         themeExt.extension,
+        tabSizeExt,
+        directionExt,
+        indentGuidesExt,
         markdownKeymap(),
         markdownFoldService(),
         keymap.of([indentWithTab]),
         closeBrackets(),
+        markdownAutoPair(),
         dropCursor(),
         EditorView.domEventHandlers({
           drop(event) {
@@ -308,6 +321,14 @@ export function createEditor(config: EditorConfig): EditorAPI {
     replaceSelection(text) {
       if (destroyed) return;
       view.dispatch(view.state.replaceSelection(text));
+    },
+    undo() {
+      if (destroyed) return false;
+      return cmUndo(view);
+    },
+    redo() {
+      if (destroyed) return false;
+      return cmRedo(view);
     },
     focus() {
       if (destroyed) {

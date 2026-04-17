@@ -54,6 +54,12 @@ export interface EditorConfig {
   plugins?: NexusPlugin[];
   theme?: import("./theme").NexusTheme;
   locale?: Partial<import("./locale").NexusLocale>;
+  /** Tab size in spaces. Default: 4 */
+  tabSize?: number;
+  /** Text direction. Default: "ltr" */
+  direction?: "ltr" | "rtl";
+  /** Show indentation guide lines. Default: false */
+  indentGuides?: boolean;
   onChange?: (doc: string, ast: Root) => void;
   onFocus?: () => void;
   onBlur?: () => void;
@@ -96,6 +102,8 @@ export interface EditorAPI {
   setSelection(anchor: number, head?: number): void;
   setDocument(next: string): void;
   replaceSelection(text: string): void;
+  undo(): boolean;
+  redo(): boolean;
   focus(): void;
   blur(): void;
   runShortcut(key: string): boolean;

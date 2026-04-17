@@ -22,6 +22,14 @@ export interface NexusTheme {
   hlType: string;
   hlDeletion: string;
   hlVariable: string;
+  /** Font size in pixels for the editor content. Default: 15 */
+  fontSize?: number;
+  /** Font family for prose content. Default: system-ui */
+  fontFamily?: string;
+  /** Monospace font family for code. Default: monospace */
+  fontFamilyMono?: string;
+  /** Max width for content area (e.g. "700px"). Unset = full width. */
+  contentMaxWidth?: string;
 }
 
 export const lightTheme: NexusTheme = {
@@ -68,7 +76,8 @@ export const darkTheme: NexusTheme = {
   hlVariable: "#9cdcfe",
 };
 
-const VAR_MAP: Record<keyof NexusTheme, string> = {
+/** Maps color tokens to CSS custom properties. Non-color tokens (fontSize etc.) are handled separately. */
+const VAR_MAP: Partial<Record<keyof NexusTheme, string>> = {
   bg: "--nexus-bg",
   bgSubtle: "--nexus-bg-subtle",
   bgMuted: "--nexus-bg-muted",
@@ -93,21 +102,35 @@ const VAR_MAP: Record<keyof NexusTheme, string> = {
 function themeToEditorTheme(theme: NexusTheme): Extension {
   const vars: Record<string, string> = {};
   for (const [key, cssVar] of Object.entries(VAR_MAP)) {
-    vars[cssVar] = theme[key as keyof NexusTheme];
+    vars[cssVar] = theme[key as keyof NexusTheme] as string;
+  }
+
+  const fontSize = (theme.fontSize ?? 15) + "px";
+  const fontFamily = theme.fontFamily ?? "system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
+  const fontFamilyMono = theme.fontFamilyMono ?? "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
+  const contentMaxWidth = theme.contentMaxWidth;
+
+  const contentStyles: Record<string, string> = { padding: "16px 0" };
+  if (contentMaxWidth) {
+    contentStyles.maxWidth = contentMaxWidth;
+    contentStyles.marginLeft = "auto";
+    contentStyles.marginRight = "auto";
   }
 
   return EditorView.theme({
     "&": {
       backgroundColor: "var(--nexus-bg)",
       color: "var(--nexus-text)",
-      fontSize: "15px",
+      fontSize,
+      fontFamily,
       ...vars
     },
-    ".cm-content": { padding: "16px 0" },
+    ".cm-content": contentStyles,
     ".cm-line": { padding: "0 20px" },
     ".cm-gutters": {
       borderRight: "1px solid var(--nexus-border)",
-      background: "var(--nexus-bg-subtle)"
+      background: "var(--nexus-bg-subtle)",
+      fontFamily: fontFamilyMono,
     },
     ".cm-lineNumbers .cm-gutterElement": {
       padding: "0 8px 0 12px",
@@ -117,7 +140,10 @@ function themeToEditorTheme(theme: NexusTheme): Extension {
     },
     ".cm-foldGutter .cm-gutterElement": {
       color: "var(--nexus-text-faint)",
-    }
+    },
+    "& .cm-content code, & .cm-content pre": {
+      fontFamily: fontFamilyMono,
+    },
   });
 }
 

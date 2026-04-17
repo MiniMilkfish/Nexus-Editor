@@ -14,7 +14,8 @@
   "dependencies": {
     "@nexus/core": "workspace:*",
     "@nexus/preset-gfm": "workspace:*",
-    "@nexus/plugin-history": "workspace:*"
+    "@nexus/plugin-history": "workspace:*",
+    "@nexus/plugin-toolbar": "workspace:*"
   },
   "devDependencies": {
     "electron": "^35.0.0",

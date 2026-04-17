@@ -1,5 +1,5 @@
 {
-  "name": "@nexus/plugin-toolbar",
+  "name": "@nexus/plugin-vim",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -16,8 +16,7 @@
     "build": "tsup src/index.ts --format esm --dts --clean"
   },
   "dependencies": {
-    "@nexus/core": "workspace:*",
-    "@codemirror/state": "^6.5.2",
-    "@codemirror/view": "^6.36.1"
+    "@replit/codemirror-vim": "^6.3.0",
+    "@nexus/core": "workspace:*"
   }
 }

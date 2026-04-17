@@ -1,7 +1,9 @@
 import { createState, type AppState } from "./state";
 import { createEditorShell, type EditorShell } from "./editor-shell";
+import { loadSettings, createSettingsPanel, type EditorSettings } from "./settings";
 
 const state: AppState = createState();
+let settings: EditorSettings = loadSettings();
 let shell: EditorShell;
 
 function createToolbar(): HTMLElement {
@@ -20,7 +22,16 @@ function createToolbar(): HTMLElement {
   saveAsBtn.textContent = "Save As";
   saveAsBtn.addEventListener("click", handleSaveAs);
 
-  toolbar.append(openBtn, saveBtn, saveAsBtn);
+  const spacer = document.createElement("div");
+  spacer.style.flex = "1";
+
+  const settingsBtn = document.createElement("button");
+  settingsBtn.textContent = "\u2699"; // ⚙
+  settingsBtn.title = "Settings";
+  settingsBtn.style.fontSize = "16px";
+  settingsBtn.addEventListener("click", handleSettings);
+
+  toolbar.append(openBtn, saveBtn, saveAsBtn, spacer, settingsBtn);
   return toolbar;
 }
 
@@ -85,6 +96,13 @@ async function handleSaveAs(): Promise<void> {
   renderStatus();
 }
 
+function handleSettings(): void {
+  createSettingsPanel(settings, (next) => {
+    settings = next;
+    shell.applySettings(settings);
+  });
+}
+
 function boot(): void {
   const root = document.getElementById("app");
   if (!root) throw new Error("Missing #app element");
@@ -99,6 +117,7 @@ function boot(): void {
   shell = createEditorShell({
     container: editorContainer,
     state,
+    settings,
     onStateChange: renderStatus,
   });
 

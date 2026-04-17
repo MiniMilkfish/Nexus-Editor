@@ -211,74 +211,83 @@ function buildCodeBlockDecorations(
   const firstNewline = source.indexOf("\n");
   const isFenced = /^[ \t]*(`{3,}|~{3,})/.test(source);
 
-  if (cursorOnCode) {
-    // ── Editing mode: fences visible, syntax highlighted ──
-    let lineOffset = range.from;
-    for (let li = 0; li < lines.length; li++) {
-      const lineStart = lineOffset;
-      const isFirstLine = li === 0;
-      const isLastLine = li === lines.length - 1;
+  // ── All lines use same base style — identical height in edit & view mode ──
+  const BASE = "background:var(--nexus-bg-subtle);font-family:monospace;font-size:0.9em;";
+  const codeValue = range.node.value;
+  const lang = range.node.lang;
+  const langText = lang ? lang.charAt(0).toUpperCase() + lang.slice(1) : "";
 
-      const attrs: Record<string, string> = {
-        style: "background:var(--nexus-bg-subtle);font-family:monospace;font-size:0.9em;"
-          + (isFirstLine ? "border-radius:4px 4px 0 0;" : "")
-          + (isLastLine ? "border-radius:0 0 4px 4px;" : "")
-      };
-      if (isFirstLine) {
-        attrs.role = "code";
-        if (range.node.lang) attrs["aria-label"] = `Code block: ${range.node.lang}`;
-      }
-      decos.push(Decoration.line({ attributes: attrs }).range(lineStart));
+  let lineOffset = range.from;
+  for (let li = 0; li < lines.length; li++) {
+    const lineStart = lineOffset;
+    const lineEnd = lineOffset + lines[li].length;
+    const isFirstLine = li === 0;
+    const isLastLine = li === lines.length - 1;
 
-      lineOffset += lines[li].length + 1;
+    // Line style — only border-radius differs between first/last/middle
+    const radius = isFirstLine ? "border-radius:4px 4px 0 0;" : isLastLine ? "border-radius:0 0 4px 4px;" : "";
+    const lineAttrs: Record<string, string> = { style: BASE + radius };
+    if (isFirstLine) {
+      lineAttrs.role = "code";
+      if (lang) lineAttrs["aria-label"] = `Code block: ${lang}`;
     }
-  } else {
-    // ── View mode: fences hidden via CSS (not cross-newline replace), content styled ──
-    const HIDE_LINE = "height:0;padding:0;margin:0;overflow:hidden;font-size:0;line-height:0;min-height:0;";
+    decos.push(Decoration.line({ attributes: lineAttrs }).range(lineStart));
 
-    let lineOffset = range.from;
-    for (let li = 0; li < lines.length; li++) {
-      const lineStart = lineOffset;
-      const lineEnd = lineOffset + lines[li].length;
-      const isFirstLine = li === 0;
-      const isLastLine = li === lines.length - 1;
-
-      if (isFenced && (isFirstLine || isLastLine)) {
-        // Hide fence lines via line CSS + replace text content
-        decos.push(Decoration.line({ attributes: { style: HIDE_LINE } }).range(lineStart));
-        if (lineEnd > lineStart) {
-          decos.push(Decoration.replace({}).range(lineStart, lineEnd));
-        }
+    // Fence lines: muted text in edit mode, replaced in view mode
+    if (isFenced && (isFirstLine || isLastLine) && lineEnd > lineStart) {
+      if (cursorOnCode) {
+        // Edit: fence text visible but faint
+        decos.push(Decoration.mark({
+          attributes: { style: "color:var(--nexus-text-faint,#bbb);" }
+        }).range(lineStart, lineEnd));
+      } else if (isFirstLine) {
+        // View: replace ```lang with right-aligned language label (click to copy)
+        decos.push(Decoration.replace({
+          widget: new (class extends WidgetType {
+            toDOM() {
+              const tag = document.createElement("span");
+              tag.textContent = langText || "";
+              if (langText) tag.title = "Click to copy code";
+              tag.style.cssText = "float:right;font-size:12px;color:var(--nexus-text-muted,#888);" +
+                "font-family:system-ui,-apple-system,sans-serif;cursor:pointer;user-select:none;" +
+                "padding:0 4px;border-radius:3px;transition:background 0.15s,color 0.15s;";
+              if (langText) {
+                tag.addEventListener("mouseenter", () => {
+                  tag.style.background = "var(--nexus-bg-muted,#e8e8e8)";
+                  tag.style.color = "var(--nexus-text,#24292e)";
+                });
+                tag.addEventListener("mouseleave", () => {
+                  tag.style.background = "transparent";
+                  tag.style.color = "var(--nexus-text-muted,#888)";
+                });
+                tag.addEventListener("mousedown", (e) => { e.preventDefault(); e.stopPropagation(); });
+                tag.addEventListener("click", (e) => {
+                  e.preventDefault(); e.stopPropagation();
+                  navigator.clipboard.writeText(codeValue).then(() => {
+                    const orig = tag.textContent;
+                    tag.textContent = "Copied!";
+                    setTimeout(() => { tag.textContent = orig; }, 1500);
+                  });
+                });
+              }
+              return tag;
+            }
+            eq() { return false; }
+            ignoreEvent() { return false; }
+          })()
+        }).range(lineStart, lineEnd));
       } else {
-        const isFirstContent = isFenced ? li === 1 : isFirstLine;
-        const isLastContent = isFenced ? li === lines.length - 2 : isLastLine;
-        decos.push(Decoration.line({
-          attributes: {
-            style: "background:var(--nexus-bg-subtle);font-family:monospace;font-size:0.9em;position:relative;"
-              + (isFirstContent ? "border-radius:4px 4px 0 0;padding-top:6px;" : "")
-              + (isLastContent ? "border-radius:0 0 4px 4px;padding-bottom:6px;" : "")
-          }
-        }).range(lineStart));
+        // View: closing ``` → empty placeholder (line stays, text hidden, cursor can enter)
+        decos.push(Decoration.replace({
+          widget: new (class extends WidgetType {
+            toDOM() { return document.createElement("span"); }
+            ignoreEvent() { return false; }
+          })()
+        }).range(lineStart, lineEnd));
       }
-
-      lineOffset = lineEnd + 1;
     }
 
-    // Language label (right-aligned on first content line)
-    if (isFenced && range.node.lang && firstNewline >= 0) {
-      const firstContentLineStart = range.from + firstNewline + 1;
-      const labelEl = document.createElement("span");
-      labelEl.textContent = range.node.lang.charAt(0).toUpperCase() + range.node.lang.slice(1);
-      labelEl.style.cssText =
-        "position:absolute;right:8px;top:6px;font-size:11px;color:var(--nexus-text-muted);font-family:sans-serif;user-select:none;";
-      decos.push(Decoration.widget({
-        widget: new (class extends WidgetType {
-          toDOM() { return labelEl; }
-          ignoreEvent() { return true; }
-        })(),
-        side: -1
-      }).range(firstContentLineStart));
-    }
+    lineOffset = lineEnd + 1;
   }
 
   // Syntax highlighting — always applied

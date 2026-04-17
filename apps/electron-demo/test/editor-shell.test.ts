@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { createEditorShell } from "../src/renderer/editor-shell";
 import { createState } from "../src/renderer/state";
+import { defaultSettings } from "../src/renderer/settings";
 
 describe("createEditorShell", () => {
   it("creates a core editor in the given container", () => {
@@ -9,6 +10,7 @@ describe("createEditorShell", () => {
     const shell = createEditorShell({
       container,
       state,
+      settings: defaultSettings(),
       onStateChange: vi.fn(),
     });
 
@@ -23,6 +25,7 @@ describe("createEditorShell", () => {
     const shell = createEditorShell({
       container,
       state,
+      settings: defaultSettings(),
       onStateChange: onChange,
     });
 
@@ -40,6 +43,7 @@ describe("createEditorShell", () => {
     const shell = createEditorShell({
       container,
       state,
+      settings: defaultSettings(),
       onStateChange: vi.fn(),
     });
 

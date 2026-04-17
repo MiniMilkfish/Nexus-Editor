@@ -1,4 +1,10 @@
 import type { EditorAPI, NexusPlugin } from "@nexus/core";
+import { colorDecorationExtension } from "./color-decoration";
+
+export { toggleBlockquote, toggleOrderedList, toggleUnorderedList, insertCodeBlock, insertImage, insertHorizontalRule, applyTextColor, applyHighlight } from "./formatting";
+export { createToolbarUI } from "./toolbar-ui";
+export { colorDecorationExtension } from "./color-decoration";
+export type { ToolbarUI, ToolbarUIOptions, ToolbarButton, ToolbarGroup } from "./toolbar-ui";
 
 export function toggleWrap(editor: EditorAPI, marker: string): boolean {
   const doc = editor.getDocument();
@@ -105,5 +111,6 @@ export function createToolbarPlugin(): NexusPlugin {
       { key: "Mod-2", run: (e) => toggleHeading(e, 2) },
       { key: "Mod-3", run: (e) => toggleHeading(e, 3) },
     ],
+    cmExtensions: [colorDecorationExtension()],
   };
 }
