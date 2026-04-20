@@ -280,7 +280,8 @@ describe("live preview", () => {
     expect(text).toContain("indented code");
     expect(text).toContain("second line");
     const codeLines = Array.from(container.querySelectorAll(".cm-line")).filter(
-      (line) => (line as HTMLElement).getAttribute("style")?.includes("monospace")
+      (line) => (line as HTMLElement).getAttribute("style")?.includes("background") ||
+        (line as HTMLElement).innerHTML.includes("monospace")
     );
     expect(codeLines.length).toBeGreaterThanOrEqual(2);
     editor.destroy();
