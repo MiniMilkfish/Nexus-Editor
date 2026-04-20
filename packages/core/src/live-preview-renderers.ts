@@ -77,9 +77,12 @@ export function createDefaultRenderer(context: LivePreviewRenderContext): HTMLEl
       return element;
     }
     case "blockquote": {
+      // CRITICAL: margin:0 — CM6 measures block widgets via getBoundingClientRect
+      // which EXCLUDES margin. Browser default <blockquote> has 1em top/bottom margin
+      // (~30px untracked height) → every blockquote would silently shift heightmap.
       const element = document.createElement("blockquote");
       element.textContent = context.text;
-      element.style.display = "block";
+      element.style.cssText = "display:block;margin:0;padding:8px 0 8px 16px;border-left:3px solid var(--nexus-border);color:var(--nexus-text-muted);";
       return element;
     }
     case "delete": {
@@ -88,8 +91,13 @@ export function createDefaultRenderer(context: LivePreviewRenderContext): HTMLEl
       return element;
     }
     case "thematicBreak": {
+      // CRITICAL: margin:0 — browser default <hr> has ~8px top/bottom margin.
+      // Use padding for visual spacing so CM6 measures the full height.
       const element = document.createElement("hr");
-      element.style.display = "block";
+      element.style.cssText = "display:block;margin:0;padding:8px 0;border:0;background:transparent;";
+      const inner = document.createElement("span");
+      inner.style.cssText = "display:block;height:1px;background:var(--nexus-border);";
+      element.appendChild(inner);
       return element;
     }
     case "code": {
@@ -130,11 +138,11 @@ export function createDefaultRenderer(context: LivePreviewRenderContext): HTMLEl
 
       pre.style.display = "block";
       pre.style.position = "relative";
+      pre.style.margin = "0"; // browser default <pre> has 1em top/bottom margin → untracked by CM6
       pre.style.padding = "8px 12px";
       pre.style.background = "var(--nexus-bg-subtle)";
       pre.style.borderRadius = "4px";
       pre.style.overflow = "auto";
-      pre.style.fontSize = "0.9em";
       pre.style.fontFamily = "monospace";
       pre.style.color = "var(--nexus-text)";
       if (lang) {
