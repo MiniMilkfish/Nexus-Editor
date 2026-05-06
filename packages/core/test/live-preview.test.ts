@@ -187,7 +187,7 @@ describe("live preview", () => {
 
   // ── Block elements ──
 
-  it("renders blockquotes and images as block previews", () => {
+  it("styles blockquotes without replacing editable source text", () => {
     const container = document.createElement("div");
     const editor = createEditor({
       container,
@@ -195,10 +195,15 @@ describe("live preview", () => {
       livePreview: true
     });
 
-    expect(container.querySelector("blockquote")?.textContent).toBe("Quote");
+    expect(container.querySelector("blockquote")).toBeNull();
+    expect(container.textContent).toContain("Quote");
+    expect(container.textContent).not.toContain("> Quote");
     expect(container.querySelector("[data-live-preview-image]")?.getAttribute("data-live-preview-image")).toBe(
       "https://example.com/image.png"
     );
+
+    editor.setSelection(9);
+    expect(container.textContent).toContain("> Quote");
     editor.destroy();
   });
 

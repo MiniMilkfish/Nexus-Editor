@@ -113,6 +113,29 @@ describe("live preview regressions", () => {
     editor.destroy();
   });
 
+  it("blockquote remains editable instead of being replaced by a block widget", () => {
+    const container = document.createElement("div");
+    const editor = createEditor({
+      container,
+      initialValue: "Text\n\n> Editable quote\n> second line\n\nend",
+      livePreview: true
+    });
+
+    editor.setSelection(editor.getDocument().length);
+    expect(container.querySelector("blockquote")).toBeNull();
+    expect(container.textContent).toContain("Editable quote");
+    expect(container.textContent).not.toContain("> Editable quote");
+
+    editor.setSelection(9);
+    expect(container.textContent).toContain("> Editable quote");
+
+    const before = editor.getDocument();
+    editor.setSelection(before.indexOf("Editable"), before.indexOf("Editable") + "Editable".length);
+    editor.replaceSelection("Edited");
+    expect(editor.getDocument()).toContain("> Edited quote");
+    editor.destroy();
+  });
+
   // Copy button must be present and stable on every fenced code block, regardless of
   // cursor position. Toggling it would re-create the heightmap instability that the
   // previous ::after-based language label caused (commit b2f1a31).

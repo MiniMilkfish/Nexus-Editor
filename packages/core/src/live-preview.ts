@@ -409,7 +409,7 @@ class MermaidWidget extends WidgetType {
   }
 }
 
-const BLOCK_NODE_TYPES = new Set(["blockquote", "thematicBreak"]);
+const BLOCK_NODE_TYPES = new Set(["thematicBreak"]);
 
 const HEADING_FONT_SIZE: Record<number, string> = {
   1: "1.6em", 2: "1.4em", 3: "1.2em", 4: "1.1em", 5: "1.05em", 6: "1em"
@@ -522,6 +522,44 @@ function buildListDecorations(
             }).range(checkEnd, lineEnd)
           );
         }
+      }
+    }
+
+    offset = lineEnd + 1;
+  }
+}
+
+const BLOCKQUOTE_MARKER_RE = /^( {0,3}>[ \t]?)/;
+
+function buildBlockquoteDecorations(
+  range: { from: number; to: number; source: string },
+  selection: readonly SelectionRange[],
+  decos: Range<Decoration>[]
+): void {
+  const source = range.source;
+  const lines = source.split("\n");
+  const cursorInBlockquote = selectionIntersects(range.from, range.to, selection, true);
+  let offset = range.from;
+
+  for (const line of lines) {
+    const lineStart = offset;
+    const lineEnd = offset + line.length;
+    decos.push(
+      Decoration.line({
+        attributes: {
+          style:
+            "color:var(--nexus-text-muted);" +
+            "border-left:3px solid var(--nexus-border);" +
+            "padding-left:12px;",
+        },
+      }).range(lineStart)
+    );
+
+    const marker = BLOCKQUOTE_MARKER_RE.exec(line);
+    if (!cursorInBlockquote && marker) {
+      const markerEnd = lineStart + marker[0].length;
+      if (markerEnd <= lineEnd) {
+        decos.push(Decoration.replace({}).range(lineStart, markerEnd));
       }
     }
 
@@ -759,6 +797,8 @@ function buildDecorations(
       );
     } else if (range.node.type === "list") {
       buildListDecorations(range as { from: number; to: number; node: List }, doc, decos, viewRef);
+    } else if (range.node.type === "blockquote") {
+      buildBlockquoteDecorations(range as { from: number; to: number; source: string }, selection, decos);
     } else if (range.node.type === "code" && !config.renderers.code) {
       buildCodeBlockDecorations(range as { from: number; to: number; node: Code; source: string }, selection, decos, viewRef, codeTokens);
     } else if (range.node.type === "image") {
@@ -867,22 +907,16 @@ function buildDecorations(
           }
         }
       } else {
-        // Block fallback for blockquote/thematicBreak: always render as widget.
+        // Block fallback for thematicBreak: always render as widget.
         // Cursor-toggle between widget and raw caused block-height shifts
         // (widget margins differ from raw-line height), destabilizing click resolution.
         const isBlock = BLOCK_NODE_TYPES.has(range.node.type);
         // Pre-measure height estimate so CM6's heightmap doesn't start at 0 and
         // jump to the real value on first render (source of post-widget click drift).
         // thematicBreak: 8 padding-top + 1 line + 8 padding-bottom = 17px.
-        // blockquote: source line count × 21px + 16px padding.
         let heightHint: number | undefined;
         if (isBlock) {
-          if (range.node.type === "thematicBreak") {
-            heightHint = 17;
-          } else {
-            const lineCount = range.source.split("\n").length;
-            heightHint = lineCount * 21 + 16;
-          }
+          heightHint = 17;
         }
         const blockKey = `${range.node.type}:${range.from}:${range.to}:${range.source}`;
         decos.push(
