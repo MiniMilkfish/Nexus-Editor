@@ -761,7 +761,7 @@ export class EditableTableWidget extends WidgetType {
           const cellIdx = cells.indexOf(clickedCell);
           clickedCol = Math.max(0, cellIdx - 1);
         }
-        showContextMenu(e.clientX, e.clientY, self, curRowIdx, isHeader, clickedCol, colCount, rows.length, wrapper);
+        showContextMenu(e.clientX, e.clientY, self, self.labels, curRowIdx, isHeader, clickedCol, colCount, rows.length, wrapper);
       });
 
       table.appendChild(tr);
@@ -893,49 +893,82 @@ export class EditableTableWidget extends WidgetType {
 function showContextMenu(
   x: number, y: number,
   widget: EditableTableWidget,
+  labels: Required<LivePreviewLabels>,
   rowIdx: number, isHeader: boolean,
   colIdx: number, colCount: number, rowCount: number,
   container: HTMLElement
 ): void {
-  container.querySelector(".nexus-table-ctx")?.remove();
+  const ownerDocument = container.ownerDocument;
+  const ownerWindow = ownerDocument.defaultView;
+  ownerDocument.querySelector(".nexus-table-ctx")?.remove();
 
-  const menu = document.createElement("div");
+  const menu = ownerDocument.createElement("div");
+  const menuBg = "var(--nexus-menu-bg, var(--nexus-bg, #ffffff))";
+  const menuText = "var(--nexus-menu-text, var(--nexus-text, #111827))";
+  const menuBorder = "var(--nexus-menu-border, var(--nexus-border-subtle, rgba(15,23,42,.14)))";
+  const itemHoverBg = "var(--nexus-menu-hover-bg, var(--nexus-bg-muted, rgba(124,108,250,.10)))";
+  const disabledText = "var(--nexus-menu-disabled-text, var(--nexus-text-faint, rgba(17,24,39,.42)))";
   menu.className = "nexus-table-ctx";
+  menu.setAttribute("role", "menu");
   menu.style.cssText =
-    "position:fixed;z-index:9999;background:var(--nexus-bg);border:1px solid var(--nexus-border-subtle);border-radius:6px;" +
-    "box-shadow:0 2px 8px rgba(0,0,0,.12);padding:4px 0;min-width:140px;font-size:13px;";
+    `position:fixed;z-index:9999;box-sizing:border-box;display:flex;flex-direction:column;gap:2px;background:${menuBg};` +
+    `color:${menuText};border:1px solid ${menuBorder};border-radius:10px;` +
+    "box-shadow:0 18px 42px rgba(15,23,42,.18);padding:6px;min-width:180px;font-size:13px;line-height:1.4;" +
+    "backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);";
   menu.style.left = x + "px";
   menu.style.top = y + "px";
+  menu.addEventListener("contextmenu", (event) => event.preventDefault());
 
   function addItem(label: string, action: () => void, disabled = false): void {
-    const item = document.createElement("div");
+    const item = ownerDocument.createElement("button");
+    item.type = "button";
+    item.setAttribute("role", "menuitem");
     item.textContent = label;
-    item.style.cssText = "padding:6px 16px;cursor:pointer;white-space:nowrap;";
+    item.style.cssText =
+      "box-sizing:border-box;width:100%;border:0;border-radius:8px;background:transparent;color:inherit;display:block;" +
+      "font:inherit;text-align:left;padding:7px 12px;cursor:pointer;white-space:nowrap;";
     if (disabled) {
-      item.style.color = "var(--nexus-text-faint)";
+      item.disabled = true;
+      item.setAttribute("aria-disabled", "true");
+      item.style.color = disabledText;
       item.style.cursor = "default";
     } else {
-      item.addEventListener("mouseenter", () => { item.style.background = "var(--nexus-bg-muted)"; });
+      item.addEventListener("mouseenter", () => { item.style.background = itemHoverBg; });
       item.addEventListener("mouseleave", () => { item.style.background = ""; });
-      item.addEventListener("click", () => { menu.remove(); action(); });
+      item.addEventListener("click", () => { cleanup(); action(); });
     }
     menu.appendChild(item);
   }
 
   if (!isHeader) {
-    addItem("Delete row", () => (widget as any).deleteRow(rowIdx));
+    addItem(labels.deleteRow, () => (widget as any).deleteRow(rowIdx));
   }
-  addItem("Delete column", () => (widget as any).deleteColumn(colIdx));
-  addItem("Add row below", () => (widget as any).addRow());
-  addItem("Add column right", () => (widget as any).addColumn());
+  addItem(labels.deleteColumn, () => (widget as any).deleteColumn(colIdx), colCount <= 1);
+  addItem(labels.insertRowBelow, () => (widget as any).addRow());
+  addItem(labels.insertColumnAfter, () => (widget as any).addColumn());
 
-  document.body.appendChild(menu);
+  ownerDocument.body.appendChild(menu);
 
-  const close = (e: MouseEvent) => {
+  const viewportWidth = ownerWindow?.innerWidth ?? ownerDocument.documentElement.clientWidth;
+  const viewportHeight = ownerWindow?.innerHeight ?? ownerDocument.documentElement.clientHeight;
+  const rect = menu.getBoundingClientRect();
+  const margin = 8;
+  if (rect.right > viewportWidth - margin) {
+    menu.style.left = Math.max(margin, x - rect.width) + "px";
+  }
+  if (rect.bottom > viewportHeight - margin) {
+    menu.style.top = Math.max(margin, y - rect.height) + "px";
+  }
+
+  function cleanup(): void {
+    menu.remove();
+    ownerDocument.removeEventListener("mousedown", close);
+  }
+
+  function close(e: MouseEvent): void {
     if (!menu.contains(e.target as Node)) {
-      menu.remove();
-      document.removeEventListener("mousedown", close);
+      cleanup();
     }
-  };
-  setTimeout(() => document.addEventListener("mousedown", close), 0);
+  }
+  setTimeout(() => ownerDocument.addEventListener("mousedown", close), 0);
 }

@@ -367,7 +367,14 @@ export function createEditor(config: EditorConfig): EditorAPI {
             return true;
           },
         }),
-        ...createLivePreviewExtension(config.livePreview, { addColumn: locale.addColumn, addRow: locale.addRow }),
+        ...createLivePreviewExtension(config.livePreview, {
+          addColumn: locale.addColumn,
+          addRow: locale.addRow,
+          deleteColumn: locale.deleteColumn,
+          deleteRow: locale.deleteRow,
+          insertColumnAfter: locale.insertColumnAfter,
+          insertRowBelow: locale.insertRowBelow,
+        }),
         ...(widgetParser ? createWidgetExtension(widgetParser, widgetDefs) : []),
         ...shortcutExtensions,
         ...cmExtensions

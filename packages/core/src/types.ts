@@ -63,6 +63,10 @@ export type LivePreviewRenderer = (context: LivePreviewRenderContext) => HTMLEle
 export interface LivePreviewLabels {
   addColumn?: string;
   addRow?: string;
+  deleteColumn?: string;
+  deleteRow?: string;
+  insertColumnAfter?: string;
+  insertRowBelow?: string;
 }
 
 export interface LivePreviewConfig {

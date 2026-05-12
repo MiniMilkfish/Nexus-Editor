@@ -27,6 +27,10 @@ interface NormalizedLivePreviewConfig {
 const DEFAULT_LABELS: Required<LivePreviewLabels> = {
   addColumn: "Add column",
   addRow: "Add row",
+  deleteColumn: "Delete column",
+  deleteRow: "Delete row",
+  insertColumnAfter: "Insert column after",
+  insertRowBelow: "Insert row below",
 };
 
 function createEmptyAst(): Root {

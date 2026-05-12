@@ -389,6 +389,45 @@ describe("live preview", () => {
     editor.destroy();
   });
 
+  it("renders a styled localized table context menu", () => {
+    const container = document.createElement("div");
+    const editor = createEditor({
+      container,
+      initialValue: "| A | B |\n| --- | --- |\n| 1 | 2 |",
+      livePreview: true,
+      locale: {
+        deleteRow: "删除行",
+        deleteColumn: "删除列",
+        insertRowBelow: "在下方插入行",
+        insertColumnAfter: "在右侧插入列"
+      },
+      plugins: [createGfmPreset()]
+    });
+
+    const dataCell = container.querySelectorAll("tr")[2]?.querySelector(".nexus-cell");
+    expect(dataCell).not.toBeNull();
+    const event = new MouseEvent("contextmenu", {
+      bubbles: true,
+      cancelable: true,
+      clientX: 32,
+      clientY: 40
+    });
+    dataCell?.dispatchEvent(event);
+
+    const menu = document.body.querySelector<HTMLElement>(".nexus-table-ctx");
+    expect(event.defaultPrevented).toBe(true);
+    expect(menu).not.toBeNull();
+    expect(menu?.getAttribute("role")).toBe("menu");
+    expect(menu?.style.background).toContain("--nexus-menu-bg");
+    expect(menu?.style.color).toContain("--nexus-menu-text");
+    expect(menu?.textContent).toContain("删除行");
+    expect(menu?.textContent).toContain("在右侧插入列");
+    expect(menu?.querySelectorAll("button[role='menuitem']")).toHaveLength(4);
+
+    menu?.remove();
+    editor.destroy();
+  });
+
   // ── Custom renderers ──
 
   it("allows host renderers to override default node rendering", () => {
