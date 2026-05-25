@@ -14,6 +14,7 @@ import type {
   FootnoteDefinition,
   FootnoteReference,
   Heading,
+  Html,
   Image,
   InlineCode,
   Link,
@@ -501,7 +502,90 @@ function adaptHeading(source: Source, node: SyntaxNode): Heading {
   };
 }
 
-function adaptParagraph(source: Source, node: SyntaxNode): Paragraph {
+// Docusaurus / VitePress / Obsidian style fenced callouts. Single-paragraph
+// shape (the only one lezer keeps in one node — body without blank lines):
+//   :::type [optional title]
+//   body line(s) without blank lines
+//   :::
+const CALLOUT_FENCE_RE = /^:::([a-zA-Z]+)(?:[ \t]+(.+?))?\r?\n([\s\S]*?)\r?\n:::\s*$/;
+
+interface CalloutPalette {
+  border: string;
+  bg: string;
+  color: string;
+  icon: string;
+  defaultLabel: string;
+}
+
+const CALLOUT_PALETTE: Record<string, CalloutPalette> = {
+  info: { border: "#0969da", bg: "rgba(9,105,218,0.08)", color: "#0969da", icon: "ℹ", defaultLabel: "INFO" },
+  note: { border: "#0969da", bg: "rgba(9,105,218,0.08)", color: "#0969da", icon: "ℹ", defaultLabel: "NOTE" },
+  tip: { border: "#1a7f37", bg: "rgba(26,127,55,0.08)", color: "#1a7f37", icon: "💡", defaultLabel: "TIP" },
+  success: { border: "#1a7f37", bg: "rgba(26,127,55,0.08)", color: "#1a7f37", icon: "✓", defaultLabel: "SUCCESS" },
+  important: { border: "#8250df", bg: "rgba(130,80,223,0.08)", color: "#8250df", icon: "❗", defaultLabel: "IMPORTANT" },
+  warning: { border: "#9a6700", bg: "rgba(154,103,0,0.08)", color: "#9a6700", icon: "⚠", defaultLabel: "WARNING" },
+  caution: { border: "#cf222e", bg: "rgba(207,34,46,0.08)", color: "#cf222e", icon: "🚫", defaultLabel: "CAUTION" },
+  danger: { border: "#cf222e", bg: "rgba(207,34,46,0.08)", color: "#cf222e", icon: "🚫", defaultLabel: "DANGER" },
+};
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function buildCalloutHtml(type: string, title: string | null, body: string): string {
+  const palette = CALLOUT_PALETTE[type.toLowerCase()] ?? CALLOUT_PALETTE.info;
+  const heading = title ?? palette.defaultLabel;
+  return (
+    `<div class="nexus-callout" data-callout-type="${escapeHtml(type)}" ` +
+      `style="border-left:4px solid ${palette.border};background:${palette.bg};` +
+      `padding:8px 14px;border-radius:6px;margin:6px 0;">` +
+      `<div class="nexus-callout-title" style="color:${palette.color};font-weight:600;` +
+      `display:flex;align-items:center;gap:6px;margin-bottom:4px;">` +
+      `<span aria-hidden="true">${palette.icon}</span>` +
+      `<span>${escapeHtml(heading)}</span>` +
+      `</div>` +
+      `<div class="nexus-callout-body" style="color:var(--nexus-text);white-space:pre-wrap;">` +
+      escapeHtml(body) +
+      `</div>` +
+    `</div>`
+  );
+}
+
+function adaptParagraph(source: Source, node: SyntaxNode): Paragraph | Html {
+  const src = readSlice(source, node.from, node.to);
+
+  // Docusaurus / VitePress / Obsidian callout: `:::type [title]\n...\n:::`.
+  // Body is rendered verbatim (no inner Markdown pass yet) — acceptable
+  // because typical callout bodies are short, single-paragraph notes.
+  const calloutMatch = CALLOUT_FENCE_RE.exec(src);
+  if (calloutMatch) {
+    const [, type, title, body] = calloutMatch;
+    return {
+      type: "html",
+      value: buildCalloutHtml(type, title ?? null, body),
+      position: position(node.from, node.to),
+    };
+  }
+
+  // If the paragraph contains any inline HTML tags (`<kbd>`, `<mark>`, `<sub>`,
+  // `<br />`, multi-line `<svg>` opening into the same paragraph, etc.),
+  // promote the whole paragraph to an Html node. Live-preview renders Html
+  // via innerHTML so the browser parses every tag at once — which is the only
+  // way to make matched open/close pairs (`<kbd>X</kbd>`) render correctly.
+  //
+  // Trade-off: inline Markdown marks inside the same paragraph (e.g. `**bold**`)
+  // stop being decoration-styled and render as literal asterisks. In practice
+  // authors don't mix inline HTML with inline Markdown in the same paragraph;
+  // splitting them with a blank line restores Markdown styling.
+  for (let c = node.firstChild; c; c = c.nextSibling) {
+    if (c.name === "HTMLTag") {
+      return adaptHtml(source, node);
+    }
+  }
   return {
     type: "paragraph",
     children: emitInline(source, node) as Paragraph["children"],
@@ -556,6 +640,17 @@ function adaptThematicBreak(node: SyntaxNode): ThematicBreak {
   };
 }
 
+function adaptHtml(source: Source, node: SyntaxNode): Html {
+  // Live-preview renders the raw HTML span via innerHTML when the cursor is
+  // outside the block, and falls back to source when the cursor is inside.
+  // We just need to carry the original source slice and a stable position.
+  return {
+    type: "html",
+    value: readSlice(source, node.from, node.to),
+    position: position(node.from, node.to),
+  };
+}
+
 function adaptBlockChild(source: Source, node: SyntaxNode): Content | null {
   const name = node.name;
   if (name.startsWith("ATXHeading") || name.startsWith("SetextHeading")) {
@@ -577,8 +672,7 @@ function adaptBlockChild(source: Source, node: SyntaxNode): Content | null {
     case "FootnoteDefinition": return adaptFootnoteDefinition(source, node);
     case "HTMLBlock":
     case "CommentBlock":
-      // Surface as raw text-bearing paragraph; live-preview ignores html anyway.
-      return adaptParagraph(source, node);
+      return adaptHtml(source, node);
     default:
       return null;
   }

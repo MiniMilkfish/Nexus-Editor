@@ -120,7 +120,16 @@ export class EditableTableWidget extends WidgetType {
   toDOM(): HTMLElement {
     const self = this;
     const rows = this.node.children ?? [];
-    const colCount = ("children" in rows[0] && Array.isArray(rows[0].children)) ? rows[0].children.length : 0;
+    // Normalise irregular markdown tables: if some rows have more cells than
+    // the header (extra cells overflowing) or fewer (missing trailing cells),
+    // pick the MAX cell count seen so the rendered grid is rectangular.
+    // Short rows are padded with empty cells in the cell loop below; long
+    // rows reserve the extra slots in the header / grip row here.
+    let colCount = 0;
+    for (const row of rows) {
+      const len = "children" in row && Array.isArray(row.children) ? row.children.length : 0;
+      if (len > colCount) colCount = len;
+    }
     const sourceLines = this.source.split("\n");
     const dataLineIndices: number[] = [];
     for (let i = 0; i < sourceLines.length; i++) if (!SEPARATOR_RE.test(sourceLines[i])) dataLineIndices.push(i);
@@ -660,11 +669,16 @@ export class EditableTableWidget extends WidgetType {
 
       tr.appendChild(rowGrip);
 
-      // Content cells
-      for (let colIdx = 0; colIdx < astCells.length; colIdx++) {
+      // Content cells — iterate up to the normalised `colCount` so every row
+      // gets the same number of <td>/<th> elements. Missing trailing cells in
+      // the markdown source are rendered as empty editable cells (typing into
+      // one writes back through the same source-line dispatch as the regular
+      // cells, so the user just lengthens the row in the source).
+      for (let colIdx = 0; colIdx < colCount; colIdx++) {
+        const astCell = colIdx < astCells.length ? astCells[colIdx] : undefined;
         const td = document.createElement(isHeader ? "th" : "td");
         td.className = "nexus-cell";
-        td.textContent = extractCellText(astCells[colIdx]);
+        td.textContent = astCell ? extractCellText(astCell) : "";
         td.style.cssText =
           "border-bottom:1px solid var(--nexus-border);border-right:1px solid var(--nexus-border);padding:8px 12px;" +
           "text-align:left;outline:none;min-width:60px;vertical-align:top;cursor:text;";
@@ -900,7 +914,10 @@ function showContextMenu(
 ): void {
   const ownerDocument = container.ownerDocument;
   const ownerWindow = ownerDocument.defaultView;
-  ownerDocument.querySelector(".nexus-table-ctx")?.remove();
+  const fullscreenEl = ownerDocument.fullscreenElement as HTMLElement | null;
+  const mountTarget: HTMLElement =
+    fullscreenEl && fullscreenEl.contains(container) ? fullscreenEl : ownerDocument.body;
+  mountTarget.querySelector(".nexus-table-ctx")?.remove();
 
   const menu = ownerDocument.createElement("div");
   const menuBg = "var(--nexus-menu-bg, var(--nexus-bg, #ffffff))";
@@ -947,7 +964,7 @@ function showContextMenu(
   addItem(labels.insertRowBelow, () => (widget as any).addRow());
   addItem(labels.insertColumnAfter, () => (widget as any).addColumn());
 
-  ownerDocument.body.appendChild(menu);
+  mountTarget.appendChild(menu);
 
   const viewportWidth = ownerWindow?.innerWidth ?? ownerDocument.documentElement.clientWidth;
   const viewportHeight = ownerWindow?.innerHeight ?? ownerDocument.documentElement.clientHeight;
